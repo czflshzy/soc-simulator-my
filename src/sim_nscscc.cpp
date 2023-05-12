@@ -60,10 +60,12 @@ void connect_wire(axi4_ptr <32,32,4> &mmio_ptr, Vmycpu_top *top) {
 bool running = true;    // 运行
 bool trace_on = false;  // 输出波形图
 bool confreg_uart = false;// 开启confreg串口输出
-long sim_time = 1e3;    // 开启trace时最大仿真时间
+long sim_time = 1000000000;    // 开启trace时最大仿真时间
 bool diff_uart = false; // 差分测试UART输出，检测MMIO访问是否正确
 bool axi_fast = false;  // 关闭性能测试时AXI延迟，用于加速Debug，不可用于跑分
 bool perf_once = false; // 性能测试只运行一次
+bool end_pc = false;
+unsigned int end_pc_value=9999;
 
 unsigned int *pc;
 
@@ -113,9 +115,10 @@ void func_run(Vmycpu_top *top, axi4_ref <32,32,4> &mmio_ref) {
     uint64_t commit_timeout = 5000;
 
     uint32_t last_pc=0;
+    int cnt=0;
 
     int test_point = 0;
-    while (!Verilated::gotFinish() && sim_time > 0 && running) {
+    while (!Verilated::gotFinish() && sim_time >= cnt ) {
         if (rst_ticks  > 0) {
             top->aresetn = 0;
             rst_ticks --;
@@ -135,22 +138,30 @@ void func_run(Vmycpu_top *top, axi4_ref <32,32,4> &mmio_ref) {
                 printf("Number %d Functional Test Point PASS!\n", test_point>>24);
             }
         }
-        if (top->debug_wb_pc!=last_pc) running = confreg.do_trace(top->debug_wb_pc,top->debug_wb_rf_wen,top->debug_wb_rf_wnum,top->debug_wb_rf_wdata);
+        if (top->debug_wb_pc!=last_pc) running = confreg.do_trace(top->debug_wb_pc,top->debug_wb_rf_wen,top->debug_wb_rf_wnum,top->debug_wb_rf_wdata,cnt);
         last_pc=top->debug_wb_pc;
         if (top->debug_wb_pc == 0xbfc00100u) running = false;
+        if (top->debug_wb_pc == end_pc_value && end_pc ) running = false;
         if (trace_on) {
-            vcd.dump(ticks);
-            sim_time --;
+            vcd.dump(ticks);            
         }
+        cnt++;
         if (ticks - last_commit >= commit_timeout) {
             printf("ERROR: There are %lu cycles since last commit\n", commit_timeout);
             running = false;
         }
         else last_commit = ticks;
         ticks ++;
+        if (running==false){
+            if (sim_time-10>cnt){
+                printf("end_cnt==%d,end_pc==%x\n",cnt,top->debug_wb_pc);
+                cnt=sim_time-10;
+            }
+        }
     }
     if (trace_on) vcd.close();
     top->final();
+    
 }
 
 void perf_run(Vmycpu_top *top, axi4_ref <32,32,4> &mmio_ref, int test_start = 1, int test_end = 10) {
@@ -433,15 +444,16 @@ int main(int argc, char** argv, char** env) {
 
     int perf_start = 1;
     int perf_end = 10;
-
+    printf("\033[31mBegin\033[0m\n");
     for (int i=1;i<argc;i++) {
         if (strcmp(argv[i],"-trace") == 0) {
             trace_on = true;
+            
+        }
+        else if (strcmp(argv[i],"-func") == 0) {
             if (i+1 < argc) {
                 sscanf(argv[++i],"%lu",&sim_time);
             }
-        }
-        else if (strcmp(argv[i],"-func") == 0) {
             run_mode = FUNC;
         }
         else if (strcmp(argv[i],"-perf") == 0) {
@@ -471,6 +483,10 @@ int main(int argc, char** argv, char** env) {
         }
         else if (strcmp(argv[i],"-perfonce") == 0) {
             perf_once = true;
+        }else if (strcmp(argv[i],"-PC") == 0) {
+            sscanf(argv[++i],"%x",&end_pc_value);
+            end_pc=true;
+            printf("fuck yyq %x\n",end_pc_value);
         }
     }
 
@@ -512,5 +528,6 @@ int main(int argc, char** argv, char** env) {
             printf("Unknown running mode. Please read readme.md!\n");
             exit(-ENOENT);
     }
+    printf("End\n");
     return 0;
 }

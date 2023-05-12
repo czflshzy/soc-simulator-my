@@ -27,12 +27,12 @@ Canshu +=-Wno-UNOPTFLAT
 Canshu +=-Wno-fatal
 
 .PHONY: clean
-obj_dir/V$(TOP_NAME): src/* $(INC_FILE)
+obj_dir/V$(TOP_NAME): clean src/* $(INC_FILE) 
 	verilator --cc -Wno-fatal --exe --trace --trace-structs --build src/sim_nscscc.cpp $(INC_FILE) $(INC_DIR) --top $(TOP_NAME) -j `nproc` -CFLAGS "-Wno-format -Wno-reorder"
 #-Wno-fatal  -Wno-TIMESCALEMOD -Wno-UNOPTFLAT -Wno-lint
 clean:
 	rm -rf obj_dir
-func:
+func : obj_dir/V$(TOP_NAME)
 	cd obj_dir && ./Vmycpu_top -func
 	
 perf:

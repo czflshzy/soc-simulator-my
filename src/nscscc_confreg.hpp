@@ -210,7 +210,7 @@ public:
     void set_trace_file(std::string filename) {
         trace_file.open(filename);
     }
-    bool do_trace(uint32_t pc, uint8_t wen, uint8_t wnum, uint32_t wdata, bool output = true) {
+    bool do_trace(uint32_t pc, uint8_t wen, uint8_t wnum, uint32_t wdata, int cnt,bool output = true) {
         uint32_t trace_cmp_flag;
         uint32_t ref_pc;
         uint32_t ref_wnum;
@@ -221,7 +221,7 @@ public:
             }
             if (pc != ref_pc || wnum != ref_wnum || wdata != ref_wdata) {
                 if (output) {
-                    printf("Error!\n");
+                    printf("\033[31mError when cnt=%d033[0m\n",cnt);
                     printf("last     : PC = 0x%08x, wb_rf_wnum = 0x%02x, wb_rf_wdata = 0x%08x\n", last_pc, last_wnum, last_wdata);
                     printf("reference: PC = 0x%08x, wb_rf_wnum = 0x%02x, wb_rf_wdata = 0x%08x\n", ref_pc, ref_wnum, ref_wdata);
                     printf("mycpu    : PC = 0x%08x, wb_rf_wnum = 0x%02x, wb_rf_wdata = 0x%08x\n", pc, wnum, wdata);
